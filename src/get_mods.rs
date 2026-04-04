@@ -35,7 +35,7 @@ const VISUAL: [&str; 11] = [
     "9s6osm5g", // cloth-config
 ];
 
-const OPTIFINE: [&str; 9] = [
+const OPTIFINE: [&str; 10] = [
     "3IuO68q1", // puzzle
     "PRN43VSY", // animatica
     "Orvt0mRa", // indium
@@ -44,6 +44,7 @@ const OPTIFINE: [&str; 9] = [
     "2Uev7LdA", // lambdabettergrass
     "otVJckYQ", // cit-resewn
     "BVzZfTc1", // entitytexturefeatures
+    "4I1XuqiY", //entity-model-features
     // "qvIfYCYJ", qsl
     "P7dR8mSH", // fabric-api
 ];
