@@ -21,7 +21,7 @@ const VANILLA: [&str; 9] = [
     "KuNKN7d2", // noisium
 ];
 
-const VISUAL: [&str; 11] = [
+const VISUAL: [&str; 12] = [
     "pcPXJeZi", // effective
     "yBW8D80W", // lambdynamiclights
     "MPCX6s5C", // not-enough-animations
@@ -30,9 +30,10 @@ const VISUAL: [&str; 11] = [
     "2Uev7LdA", // lambdabettergrass
     "1IjD5062", // continuity
     "YL57xq9U", // iris
-    "uCdwusMi", // distanthorizons
     "P7dR8mSH", // fabric-api
     "9s6osm5g", // cloth-config
+    "fxxUqruK", // voxy
+    "xT0lnNE9", // voxy-worldgen
 ];
 
 const OPTIFINE: [&str; 10] = [
@@ -45,7 +46,6 @@ const OPTIFINE: [&str; 10] = [
     "otVJckYQ", // cit-resewn
     "BVzZfTc1", // entitytexturefeatures
     "4I1XuqiY", //entity-model-features
-    // "qvIfYCYJ", qsl
     "P7dR8mSH", // fabric-api
 ];
 
