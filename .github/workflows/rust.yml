@@ -29,8 +29,8 @@ jobs:
             filename: velvet-windows.exe
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/cache@v3
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/
@@ -43,7 +43,7 @@ jobs:
       - name: Build
         run: cargo build --release --verbose
       - name: Upload a Build Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: velvet-${{ matrix.os }}
           path: ${{ matrix.path }}
