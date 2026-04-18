@@ -246,13 +246,7 @@ async fn run(mc_version: String, modlists: (bool, bool, bool)) -> Result<Vec<Str
         .json()
         .await?;
 
-    let mut quilt_version = String::new();
-    for x in response {
-        if !x.version.contains('-') {
-            quilt_version = x.version;
-            break;
-        }
-    }
+    let mut quilt_version = response[0].version;
 
     let path_mods = install_velvet::run(&mc_version, &quilt_version).await?;
     let missing = get_mods::run(mc_version, &modlists, path_mods).await?;
