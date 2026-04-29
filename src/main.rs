@@ -1,6 +1,5 @@
 #![windows_subsystem = "windows"]
 
-mod get_minecraft_dir;
 mod get_mods;
 mod install_velvet;
 mod theme;

@@ -1,4 +1,5 @@
 use anyhow::{Result, anyhow};
+use home::home_dir;
 use rfd::AsyncFileDialog;
 use tokio::fs;
 use tokio::fs::{File, create_dir_all};
@@ -6,10 +7,10 @@ use tokio::io::AsyncWriteExt;
 
 use std::path::PathBuf;
 
-use crate::{get_minecraft_dir, write_json};
+use crate::write_json;
 
 pub async fn run(mc_version: &String, quilt_version: &String) -> Result<PathBuf> {
-    let mut mc_path: PathBuf = get_minecraft_dir::dir()?;
+    let mut mc_path: PathBuf = get_minecraft_dir()?;
     while !mc_path.is_dir() {
         mc_path = std::path::PathBuf::from(
             AsyncFileDialog::new()
@@ -47,4 +48,28 @@ pub async fn run(mc_version: &String, quilt_version: &String) -> Result<PathBuf>
     launcher_file.write_all(profile.as_bytes()).await?;
 
     Ok(path_mods)
+}
+
+fn get_minecraft_dir() -> Result<PathBuf> {
+    cfg_select! {
+        target_os = "linux" => {
+            let mut dir = home_dir().ok_or_else(|| anyhow!("Couldn't find home directory!"))?;
+            dir.push(".minecraft");
+            Ok(dir)
+        }
+        target_os = "macos" => {
+            let mut dir = home_dir().ok_or_else(|| anyhow!("Couldn't find home directory!"))?;
+            dir.push("Library");
+            dir.push("Application Support");
+            dir.push("minecraft");
+            Ok(dir)
+        }
+        target_os = "windows" => {
+            let mut dir = home_dir().ok_or_else(|| anyhow!("Couldn't find home directory!"))?;
+            dir.push("AppData");
+            dir.push("Roaming");
+            dir.push(".minecraft");
+            Ok(dir)
+        }
+    }
 }
