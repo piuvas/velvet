@@ -40,6 +40,8 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - uses: rui314/setup-mold@v1
+      - name: Update Rust
+        run: rustup update
       - name: Build
         run: cargo build --release --verbose
       - name: Upload a Build Artifact
