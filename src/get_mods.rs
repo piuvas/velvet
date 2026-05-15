@@ -43,13 +43,18 @@ const OPTIFINE: [&str; 9] = [
     "2Uev7LdA", // lambdabettergrass
     "otVJckYQ", // cit-resewn
     "BVzZfTc1", // entitytexturefeatures
-    "4I1XuqiY", //entity-model-features
+    "4I1XuqiY", // entity-model-features
 ];
 
 const MODRINTH_SERVER: &str = "https://api.modrinth.com/v2";
 
 enum Status {
-    Found(&'static str, String, String, HashMap<String, String>),
+    Found(
+        &'static str,
+        String,
+        String,
+        HashMap<String, Option<String>>,
+    ),
     NotFound(String),
 }
 
@@ -95,7 +100,7 @@ pub async fn run(
         ))
         .build()?;
 
-    let mut existing_mods = HashMap::new();
+    let mut existing_id_to_hash = HashMap::new();
     let mut mod_folder_reader = read_dir(&path_mods).await?;
 
     while let Some(file) = mod_folder_reader.next_entry().await? {
@@ -105,55 +110,62 @@ pub async fn run(
 
         let mod_id = String::from(&file_name[0..8]);
 
-        existing_mods.insert(mod_id, file_hash);
+        existing_id_to_hash.insert(mod_id, file_hash);
     }
 
-    let mut mods_from_modlist = HashSet::new();
+    let mut selected_id_set = HashSet::new();
 
     if modlist.0 {
         for x in VANILLA {
-            mods_from_modlist.insert(x);
+            selected_id_set.insert(x);
         }
     }
     if modlist.1 {
         for x in VISUAL {
-            mods_from_modlist.insert(x);
+            selected_id_set.insert(x);
         }
     }
     if modlist.2 {
         for x in OPTIFINE {
-            mods_from_modlist.insert(x);
+            selected_id_set.insert(x);
         }
     }
 
-    let mut get_versions = Vec::new();
+    let mut check_latest_tasks = Vec::new();
 
-    for x in mods_from_modlist {
+    for x in selected_id_set {
         let task = check_latest(x, client.clone(), mc_version.clone());
-        get_versions.push(task);
+        check_latest_tasks.push(task);
     }
 
-    let mut new_mod_hashes = HashMap::new();
-    let mut dependency_list = HashMap::new();
+    let mut new_id_to_hash = HashMap::new();
+    let mut dep_id_to_url_hash = HashMap::new();
     let mut download_list = HashMap::new();
     let mut mods_not_found = Vec::new();
 
-    for result in try_join_all(get_versions).await? {
+    for result in try_join_all(check_latest_tasks).await? {
         match result {
             Status::NotFound(x) => mods_not_found.push(x),
             Status::Found(id, url, hash, deps) => {
-                if let Some(x) = existing_mods.get(id)
+                if let Some(x) = existing_id_to_hash.get(id)
                     && x == &hash
                 {
-                    println!("Already found \x1b[35m{id}\x1b[39m.")
+                    println!("Already found \x1b[35m{id}\x1b[39m.");
+                    new_id_to_hash.insert(id.to_string(), hash);
                 } else {
                     download_list.insert(id.to_string(), (url, hash));
                 }
-                for dep in deps {
-                    if let Some((dep_url, dep_hash)) =
-                        get_files_from_version_id(&dep.1, client.clone()).await?
-                    {
-                        dependency_list.insert(dep.0, (dep_url, dep_hash));
+                for (dep_project_id, dep_version_id) in deps {
+                    if let Some((dep_url, dep_hash)) = match dep_version_id {
+                        Some(version_id) => {
+                            get_dep_from_version_id(&version_id, client.clone()).await?
+                        }
+                        None => {
+                            get_dep_from_project_id(&dep_project_id, &mc_version, client.clone())
+                                .await?
+                        }
+                    } {
+                        dep_id_to_url_hash.insert(dep_project_id, (dep_url, dep_hash));
                     }
                 }
             }
@@ -161,11 +173,9 @@ pub async fn run(
     }
 
     let mut download_mods = Vec::new();
-
-    for (id, (url, hash)) in dependency_list {
+    for (id, (url, hash)) in dep_id_to_url_hash {
         download_list.insert(id, (url, hash));
     }
-
     for (id, (url, hash)) in download_list {
         download_mods.push(download_mod(
             url,
@@ -173,11 +183,11 @@ pub async fn run(
             path_mods.clone(),
             client.clone(),
         ));
-        new_mod_hashes.insert(id, hash);
+        new_id_to_hash.insert(id, hash);
     }
 
-    for (id, hash) in existing_mods {
-        if new_mod_hashes.get(&id) != Some(&hash) {
+    for (id, hash) in existing_id_to_hash {
+        if new_id_to_hash.get(&id) != Some(&hash) {
             println!("Removing \x1b[35m{id}\x1b[39m.");
             remove_file(path_mods.join(id).with_extension("jar")).await?
         }
@@ -216,9 +226,11 @@ async fn check_latest(x: &'static str, client: Client, mc_version: String) -> Re
             for dep in dep_array {
                 if dep.dependency_type == "required"
                     && let Some(project_id) = &dep.project_id
-                    && let Some(version_id) = &dep.version_id
                 {
-                    deps.insert(project_id.to_string(), version_id.to_string());
+                    deps.insert(
+                        project_id.to_string(),
+                        dep.version_id.as_ref().map(|x| x.to_string()),
+                    );
                 }
             }
         }
@@ -228,10 +240,29 @@ async fn check_latest(x: &'static str, client: Client, mc_version: String) -> Re
     }
 }
 
-async fn get_files_from_version_id(id: &str, client: Client) -> Result<Option<(String, String)>> {
+async fn get_dep_from_version_id(id: &str, client: Client) -> Result<Option<(String, String)>> {
     let modrinth_url = format!("{MODRINTH_SERVER}/version/{id}");
     let version_response: Version = client.get(&modrinth_url).send().await?.json().await?;
     if let Some(file) = version_response.files.first() {
+        println!("Found dependency \x1b[35m{id}\x1b[39m.");
+        return Ok(Some((file.url.to_owned(), file.hashes.sha1.to_owned())));
+    };
+    Ok(None)
+}
+
+async fn get_dep_from_project_id(
+    id: &str,
+    mc_version: &str,
+    client: Client,
+) -> Result<Option<(String, String)>> {
+    let modrinth_url = format!(
+        "{MODRINTH_SERVER}/project/{id}/version?loaders=[\"fabric\", \"quilt\"]&game_versions=[{mc_version:?}]&include_changelog=false"
+    );
+    let version_response: Vec<Version> = client.get(&modrinth_url).send().await?.json().await?;
+    if let Some(version) = version_response.first()
+        && let Some(file) = version.files.first()
+    {
+        println!("Found dependency \x1b[35m{id}\x1b[39m.");
         return Ok(Some((file.url.to_owned(), file.hashes.sha1.to_owned())));
     };
     Ok(None)
