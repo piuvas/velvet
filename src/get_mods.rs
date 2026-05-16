@@ -1,5 +1,6 @@
 use anyhow::Result;
-use iced::futures::future::try_join_all;
+use iced::futures::FutureExt;
+use iced::futures::future::{Either, join_all, try_join_all};
 use reqwest::{Client, ClientBuilder};
 use serde::Deserialize;
 use sha1_smol::Sha1;
@@ -88,7 +89,7 @@ struct Dependency {
 }
 
 pub async fn run(
-    mc_version: String,
+    mc_version: &str,
     modlist: &(bool, bool, bool),
     path_mods: PathBuf,
 ) -> Result<Vec<String>> {
@@ -100,7 +101,8 @@ pub async fn run(
         ))
         .build()?;
 
-    let mut existing_id_to_hash = HashMap::new();
+    let mut existing_hash = HashSet::new();
+    let mut delete_ids = HashSet::new();
     let mut mod_folder_reader = read_dir(&path_mods).await?;
 
     while let Some(file) = mod_folder_reader.next_entry().await? {
@@ -110,7 +112,8 @@ pub async fn run(
 
         let mod_id = String::from(&file_name[0..8]);
 
-        existing_id_to_hash.insert(mod_id, file_hash);
+        delete_ids.insert(mod_id);
+        existing_hash.insert(file_hash);
     }
 
     let mut selected_id_set = HashSet::new();
@@ -131,84 +134,103 @@ pub async fn run(
         }
     }
 
-    let mut check_latest_tasks = Vec::new();
+    // in the first batch, we check all project ids to see available mods and fetch dependencies.
+    // we also check if they already exist in the mod folder by comparing the sha1 hash.
 
-    for x in selected_id_set {
-        let task = check_latest(x, client.clone(), mc_version.clone());
-        check_latest_tasks.push(task);
+    let mut check_latest_futures = Vec::new();
+    for id in selected_id_set {
+        check_latest_futures.push(check_latest(id, mc_version, client.clone()));
     }
 
-    let mut new_id_to_hash = HashMap::new();
-    let mut dep_id_to_url_hash = HashMap::new();
-    let mut download_list = HashMap::new();
-    let mut mods_not_found = Vec::new();
+    let mut not_found = Vec::new();
+    let mut selected_id_to_url_hash = HashMap::new();
 
-    for result in try_join_all(check_latest_tasks).await? {
+    let mut get_dep_futures: Vec<Either<_, _>> = Vec::new();
+    for result in join_all(check_latest_futures).await {
         match result {
-            Status::NotFound(x) => mods_not_found.push(x),
-            Status::Found(id, url, hash, deps) => {
-                if let Some(x) = existing_id_to_hash.get(id)
-                    && x == &hash
-                {
+            Ok(Status::Found(id, url, hash, deps)) => {
+                if existing_hash.contains(&hash) {
                     println!("Already found \x1b[35m{id}\x1b[39m.");
-                    new_id_to_hash.insert(id.to_string(), hash);
-                } else {
-                    download_list.insert(id.to_string(), (url, hash));
-                }
-                for (dep_project_id, dep_version_id) in deps {
-                    if let Some((dep_url, dep_hash)) = match dep_version_id {
-                        Some(version_id) => {
-                            get_dep_from_version_id(&version_id, client.clone()).await?
+                    delete_ids.remove(id);
+                    for (dep_project_id, dep_version_id) in deps {
+                        if let Some(dep_version_id) = dep_version_id {
+                            get_dep_futures.push(
+                                get_dep_from_version_id(dep_version_id, client.clone())
+                                    .left_future(),
+                            );
+                        } else {
+                            get_dep_futures.push(
+                                get_dep_from_project_id(dep_project_id, mc_version, client.clone())
+                                    .right_future(),
+                            );
                         }
-                        None => {
-                            get_dep_from_project_id(&dep_project_id, &mc_version, client.clone())
-                                .await?
-                        }
-                    } {
-                        dep_id_to_url_hash.insert(dep_project_id, (dep_url, dep_hash));
                     }
+                } else {
+                    selected_id_to_url_hash.insert(id, (url, hash));
                 }
+            }
+            Ok(Status::NotFound(name)) => not_found.push(name),
+            Err(e) => return Err(e),
+        }
+    }
+
+    // in the second batch, we fetch the url and hash for all dependencies.
+
+    let mut dep_id_to_url_hash = HashMap::new();
+    for result in try_join_all(get_dep_futures).await? {
+        if let Some((id, url, hash)) = result {
+            if existing_hash.contains(&hash) {
+                delete_ids.remove(&id);
+            } else {
+                dep_id_to_url_hash.insert(id, (url, hash));
             }
         }
     }
 
-    let mut download_mods = Vec::new();
-    for (id, (url, hash)) in dep_id_to_url_hash {
-        download_list.insert(id, (url, hash));
+    // then, we make sure dependencies with strict versions don't conflict with selected mods.
+    for (id, _) in &dep_id_to_url_hash {
+        selected_id_to_url_hash.remove(id.as_str());
     }
-    for (id, (url, hash)) in download_list {
-        download_mods.push(download_mod(
+
+    // in the third batch, we download all mods
+    let mut download_mod_futures = Vec::new();
+    for (id, (url, _)) in selected_id_to_url_hash {
+        download_mod_futures.push(download_mod(
             url,
-            id.clone(),
+            id.to_owned(),
             path_mods.clone(),
             client.clone(),
         ));
-        new_id_to_hash.insert(id, hash);
+    }
+    for (id, (url, _)) in dep_id_to_url_hash {
+        download_mod_futures.push(download_mod(url, id, path_mods.clone(), client.clone()));
     }
 
-    for (id, hash) in existing_id_to_hash {
-        if new_id_to_hash.get(&id) != Some(&hash) {
-            println!("Removing \x1b[35m{id}\x1b[39m.");
-            remove_file(path_mods.join(id).with_extension("jar")).await?
-        }
-    }
+    try_join_all(download_mod_futures).await?;
 
-    try_join_all(download_mods).await?;
-    Ok(mods_not_found)
+    // then, we delete files which were neither just created nor verified to be selected.
+    let mut delete_file_futures = Vec::new();
+    for id in delete_ids {
+        println!("Removing \x1b[35m{id}\x1b[39m.");
+        delete_file_futures.push(remove_file(path_mods.join(id).with_extension("jar")));
+    }
+    try_join_all(delete_file_futures).await?;
+
+    Ok(not_found)
 }
 
-async fn download_mod(url: String, file_name: String, path: PathBuf, client: Client) -> Result<()> {
-    println!("Downloading \x1b[35m{file_name}\x1b[39m.");
-    let path = path.join(&file_name).with_extension("jar");
+async fn download_mod(url: String, id: String, path: PathBuf, client: Client) -> Result<()> {
+    println!("Downloading \x1b[35m{id}\x1b[39m.");
+    let path = path.join(&id).with_extension("jar");
     let download = client.get(url).send().await?.bytes().await?;
     let mut mod_file = File::create(path).await?;
     mod_file.write_all(&download).await?;
-    println!("Finished downloading \x1b[35m{file_name}\x1b[39m.");
+    println!("Finished downloading \x1b[35m{id}\x1b[39m.");
     Ok(())
 }
 
-async fn check_latest(x: &'static str, client: Client, mc_version: String) -> Result<Status> {
-    let mut modrinth_url = format!("{MODRINTH_SERVER}/project/{x}");
+async fn check_latest(id: &'static str, mc_version: &str, client: Client) -> Result<Status> {
+    let mut modrinth_url = format!("{MODRINTH_SERVER}/project/{id}");
     let project: Project = client.get(&modrinth_url).send().await?.json().await?;
 
     modrinth_url = format!(
@@ -234,27 +256,30 @@ async fn check_latest(x: &'static str, client: Client, mc_version: String) -> Re
                 }
             }
         }
-        Ok(Status::Found(x, url, hash, deps))
+        Ok(Status::Found(id, url, hash, deps))
     } else {
         Ok(Status::NotFound(project.slug))
     }
 }
 
-async fn get_dep_from_version_id(id: &str, client: Client) -> Result<Option<(String, String)>> {
+async fn get_dep_from_version_id(
+    id: String,
+    client: Client,
+) -> Result<Option<(String, String, String)>> {
     let modrinth_url = format!("{MODRINTH_SERVER}/version/{id}");
     let version_response: Version = client.get(&modrinth_url).send().await?.json().await?;
     if let Some(file) = version_response.files.first() {
         println!("Found dependency \x1b[35m{id}\x1b[39m.");
-        return Ok(Some((file.url.to_owned(), file.hashes.sha1.to_owned())));
+        return Ok(Some((id, file.url.to_owned(), file.hashes.sha1.to_owned())));
     };
     Ok(None)
 }
 
-async fn get_dep_from_project_id(
-    id: &str,
+async fn get_dep_from_project_id<'id>(
+    id: String,
     mc_version: &str,
     client: Client,
-) -> Result<Option<(String, String)>> {
+) -> Result<Option<(String, String, String)>> {
     let modrinth_url = format!(
         "{MODRINTH_SERVER}/project/{id}/version?loaders=[\"fabric\", \"quilt\"]&game_versions=[{mc_version:?}]&include_changelog=false"
     );
@@ -263,7 +288,7 @@ async fn get_dep_from_project_id(
         && let Some(file) = version.files.first()
     {
         println!("Found dependency \x1b[35m{id}\x1b[39m.");
-        return Ok(Some((file.url.to_owned(), file.hashes.sha1.to_owned())));
+        return Ok(Some((id, file.url.to_owned(), file.hashes.sha1.to_owned())));
     };
     Ok(None)
 }
