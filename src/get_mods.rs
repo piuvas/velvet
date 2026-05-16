@@ -1,6 +1,6 @@
 use anyhow::Result;
 use iced::futures::FutureExt;
-use iced::futures::future::{Either, join_all, try_join_all};
+use iced::futures::future::{Either, try_join_all};
 use reqwest::{Client, ClientBuilder};
 use serde::Deserialize;
 use sha1_smol::Sha1;
@@ -146,31 +146,29 @@ pub async fn run(
     let mut selected_id_to_url_hash = HashMap::new();
 
     let mut get_dep_futures: Vec<Either<_, _>> = Vec::new();
-    for result in join_all(check_latest_futures).await {
+    for result in try_join_all(check_latest_futures).await? {
         match result {
-            Ok(Status::Found(id, url, hash, deps)) => {
+            Status::Found(id, url, hash, deps) => {
                 if existing_hash.contains(&hash) {
                     println!("Already found \x1b[35m{id}\x1b[39m.");
                     delete_ids.remove(id);
-                    for (dep_project_id, dep_version_id) in deps {
-                        if let Some(dep_version_id) = dep_version_id {
-                            get_dep_futures.push(
-                                get_dep_from_version_id(dep_version_id, client.clone())
-                                    .left_future(),
-                            );
-                        } else {
-                            get_dep_futures.push(
-                                get_dep_from_project_id(dep_project_id, mc_version, client.clone())
-                                    .right_future(),
-                            );
-                        }
-                    }
                 } else {
                     selected_id_to_url_hash.insert(id, (url, hash));
                 }
+                for (dep_project_id, dep_version_id) in deps {
+                    if let Some(dep_version_id) = dep_version_id {
+                        get_dep_futures.push(
+                            get_dep_from_version_id(dep_version_id, client.clone()).left_future(),
+                        );
+                    } else {
+                        get_dep_futures.push(
+                            get_dep_from_project_id(dep_project_id, mc_version, client.clone())
+                                .right_future(),
+                        );
+                    }
+                }
             }
-            Ok(Status::NotFound(name)) => not_found.push(name),
-            Err(e) => return Err(e),
+            Status::NotFound(name) => not_found.push(name),
         }
     }
 
