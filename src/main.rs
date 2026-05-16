@@ -144,13 +144,13 @@ impl Velvet {
             Status::Idle => ("Install", None),
             Status::Installing => ("Installing...", None),
             Status::NoVersion => ("No version selected!", None),
-            Status::Success(mods) => (
+            Status::Success(not_found) => (
                 "Finished!",
-                if !mods.is_empty() {
+                if !not_found.is_empty() {
                     Some({
                         let mut mod_string = String::new();
-                        mod_string.push_str(&mods[0]);
-                        for name in mods.iter().skip(1) {
+                        mod_string.push_str(&not_found[0]);
+                        for name in not_found.iter().skip(1) {
                             mod_string.push_str(", ");
                             mod_string.push_str(name);
                         }
