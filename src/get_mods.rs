@@ -177,18 +177,16 @@ pub async fn run(
     // in the second batch, we fetch the url and hash for all dependencies.
 
     let mut dep_id_to_url_hash = HashMap::new();
-    for result in try_join_all(get_dep_futures).await? {
-        if let Some((id, url, hash)) = result {
-            if existing_hash.contains(&hash) {
-                delete_ids.remove(&id);
-            } else {
-                dep_id_to_url_hash.insert(id, (url, hash));
-            }
+    for (id, url, hash) in try_join_all(get_dep_futures).await?.into_iter().flatten() {
+        if existing_hash.contains(&hash) {
+            delete_ids.remove(&id);
+        } else {
+            dep_id_to_url_hash.insert(id, (url, hash));
         }
     }
 
     // then, we make sure dependencies with strict versions don't conflict with selected mods.
-    for (id, _) in &dep_id_to_url_hash {
+    for id in dep_id_to_url_hash.keys() {
         selected_id_to_url_hash.remove(id.as_str());
     }
 
@@ -275,7 +273,7 @@ async fn get_dep_from_version_id(
     Ok(None)
 }
 
-async fn get_dep_from_project_id<'id>(
+async fn get_dep_from_project_id(
     id: String,
     mc_version: &str,
     client: Client,
