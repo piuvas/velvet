@@ -204,7 +204,9 @@ pub async fn run(
         download_mod_futures.push(download_mod(url, id, path_mods.clone(), client.clone()));
     }
 
-    try_join_all(download_mod_futures).await?;
+    for id in try_join_all(download_mod_futures).await? {
+        delete_ids.remove(&id);
+    }
 
     // then, we delete files which were neither just created nor verified to be selected.
     let mut delete_file_futures = Vec::new();
@@ -217,14 +219,14 @@ pub async fn run(
     Ok(not_found)
 }
 
-async fn download_mod(url: String, id: String, path: PathBuf, client: Client) -> Result<()> {
+async fn download_mod(url: String, id: String, path: PathBuf, client: Client) -> Result<String> {
     println!("Downloading \x1b[35m{id}\x1b[39m.");
     let path = path.join(&id).with_extension("jar");
     let download = client.get(url).send().await?.bytes().await?;
     let mut mod_file = File::create(path).await?;
     mod_file.write_all(&download).await?;
     println!("Finished downloading \x1b[35m{id}\x1b[39m.");
-    Ok(())
+    Ok(id)
 }
 
 async fn check_latest(id: &'static str, mc_version: &str, client: Client) -> Result<Status> {
