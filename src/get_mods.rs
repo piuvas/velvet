@@ -66,6 +66,7 @@ struct Project {
 
 #[derive(Deserialize)]
 struct Version {
+    project_id: String,
     files: Vec<VersionFile>,
     dependencies: Option<Vec<Dependency>>,
 }
@@ -261,32 +262,40 @@ async fn check_latest(id: &'static str, mc_version: &str, client: Client) -> Res
 }
 
 async fn get_dep_from_version_id(
-    id: String,
+    version_id: String,
     client: Client,
 ) -> Result<Option<(String, String, String)>> {
-    let modrinth_url = format!("{MODRINTH_SERVER}/version/{id}");
+    let modrinth_url = format!("{MODRINTH_SERVER}/version/{version_id}");
     let version_response: Version = client.get(&modrinth_url).send().await?.json().await?;
     if let Some(file) = version_response.files.first() {
-        println!("Found dependency \x1b[35m{id}\x1b[39m.");
-        return Ok(Some((id, file.url.to_owned(), file.hashes.sha1.to_owned())));
+        println!("Found dependency \x1b[35m{version_id}\x1b[39m.");
+        return Ok(Some((
+            version_response.project_id,
+            file.url.to_owned(),
+            file.hashes.sha1.to_owned(),
+        )));
     };
     Ok(None)
 }
 
 async fn get_dep_from_project_id(
-    id: String,
+    project_id: String,
     mc_version: &str,
     client: Client,
 ) -> Result<Option<(String, String, String)>> {
     let modrinth_url = format!(
-        "{MODRINTH_SERVER}/project/{id}/version?loaders=[\"fabric\", \"quilt\"]&game_versions=[{mc_version:?}]&include_changelog=false"
+        "{MODRINTH_SERVER}/project/{project_id}/version?loaders=[\"fabric\", \"quilt\"]&game_versions=[{mc_version:?}]&include_changelog=false"
     );
     let version_response: Vec<Version> = client.get(&modrinth_url).send().await?.json().await?;
     if let Some(version) = version_response.first()
         && let Some(file) = version.files.first()
     {
-        println!("Found dependency \x1b[35m{id}\x1b[39m.");
-        return Ok(Some((id, file.url.to_owned(), file.hashes.sha1.to_owned())));
+        println!("Found dependency \x1b[35m{project_id}\x1b[39m.");
+        return Ok(Some((
+            project_id,
+            file.url.to_owned(),
+            file.hashes.sha1.to_owned(),
+        )));
     };
     Ok(None)
 }
