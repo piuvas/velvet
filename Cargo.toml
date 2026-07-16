@@ -8,7 +8,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
-reqwest = { version = "0.13", features = ["json"] }
+reqwest = { version = "0.13", default-features = false, features = ["http2", "system-proxy", "native-tls", "json"] }
 iced = { version = "0.14", features = [
     "image",
     "tokio",
