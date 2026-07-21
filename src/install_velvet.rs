@@ -1,5 +1,6 @@
 use anyhow::{Result, anyhow};
 use home::home_dir;
+use reqwest::Client;
 use rfd::AsyncFileDialog;
 use tokio::fs;
 use tokio::fs::{File, create_dir_all};
@@ -9,7 +10,7 @@ use std::path::PathBuf;
 
 use crate::write_json;
 
-pub async fn run(mc_version: &String, quilt_version: &String) -> Result<PathBuf> {
+pub async fn run(client: Client, mc_version: &String, quilt_version: &String) -> Result<PathBuf> {
     let mut mc_path: PathBuf = get_minecraft_dir()?;
     while !mc_path.is_dir() {
         mc_path = std::path::PathBuf::from(
@@ -36,7 +37,7 @@ pub async fn run(mc_version: &String, quilt_version: &String) -> Result<PathBuf>
 
     path_version.set_extension("json");
     let mut json_file = File::create(&path_version).await?;
-    write_json::write_version(mc_version, quilt_version, &mut json_file).await?;
+    write_json::write_version(client.clone(), mc_version, quilt_version, &mut json_file).await?;
 
     mc_path.push("launcher_profiles");
     mc_path.set_extension("json");

@@ -3,7 +3,7 @@ use iced::{
     border::Radius,
     color,
     overlay::menu,
-    widget::{button, checkbox, container, pick_list},
+    widget::{button, checkbox, container, pick_list, scrollable, text_input},
 };
 
 // rosé pine.
@@ -17,6 +17,24 @@ pub const FOAM: Color = color!(0x9ccfd8);
 pub const GOLD: Color = color!(0xf6c177);
 
 pub fn container_style(_: &Theme) -> container::Style {
+    container::Style {
+        text_color: None,
+        background: Some(Background::Color(BASE)),
+        border: Border {
+            color: LOVE,
+            width: 1.0,
+            radius: Radius::new(10.0),
+        },
+        shadow: Shadow {
+            color: BASE,
+            offset: Vector::new(0.0, 0.0),
+            blur_radius: 0.0,
+        },
+        ..Default::default()
+    }
+}
+
+pub fn extra_mods_container_style(_: &Theme) -> container::Style {
     container::Style {
         text_color: None,
         background: Some(Background::Color(BASE)),
@@ -48,6 +66,24 @@ pub fn pick_list_style(_: &Theme, status: pick_list::Status) -> pick_list::Style
             width: 1.0,
             radius: Radius::new(10.0),
         },
+    }
+}
+
+pub fn text_input_style(_: &Theme, status: text_input::Status) -> text_input::Style {
+    text_input::Style {
+        background: Background::Color(match status {
+            text_input::Status::Hovered => SURFACE,
+            _ => BASE,
+        }),
+        border: Border {
+            color: LOVE,
+            width: 1.0,
+            radius: Radius::new(10.0),
+        },
+        placeholder: SUBTLE,
+        value: TEXT,
+        selection: SURFACE,
+        icon: TEXT,
     }
 }
 
@@ -109,5 +145,40 @@ pub fn button_style(_: &Theme, status: button::Status) -> button::Style {
             offset: Vector::new(0.0, 0.0),
         },
         ..Default::default()
+    }
+}
+
+pub fn extra_mods_button_style(_: &Theme, status: button::Status) -> button::Style {
+    button::Style {
+        background: match status {
+            button::Status::Hovered => Some(Background::Color(LOVE)),
+            _ => None,
+        },
+        text_color: match status {
+            button::Status::Pressed => TEXT,
+            button::Status::Hovered => BASE,
+            _ => TEXT,
+        },
+        border: Border {
+            color: BASE,
+            width: 0.0,
+            radius: Radius::new(10.0),
+        },
+        shadow: Shadow {
+            color: LOVE.scale_alpha(0.1),
+            blur_radius: match status {
+                button::Status::Hovered => 15.0,
+                _ => 0.0,
+            },
+            offset: Vector::new(0.0, 0.0),
+        },
+        ..Default::default()
+    }
+}
+
+pub fn extra_mods_scrollable_style(theme: &Theme, status: scrollable::Status) -> scrollable::Style {
+    scrollable::Style {
+        container: extra_mods_container_style(theme),
+        ..scrollable::default(theme, status)
     }
 }

@@ -1,5 +1,6 @@
 use anyhow::Result;
 use chrono::Utc;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::fs;
@@ -33,9 +34,20 @@ struct Profile {
     extra: HashMap<String, Value>,
 }
 
-pub async fn write_version(mc: &String, velvet: &String, z: &mut fs::File) -> Result<()> {
+pub async fn write_version(
+    client: Client,
+    mc: &String,
+    velvet: &String,
+    z: &mut fs::File,
+) -> Result<()> {
     let url = format!("https://meta.quiltmc.org/v3/versions/loader/{mc}/{velvet}/profile/json");
-    let json: serde_json::Value = reqwest::get(&url).await?.json().await?;
+    let json: serde_json::Value = client
+        .get(&url)
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
     z.write_all(&serde_json::to_vec_pretty(&json)?).await?;
     Ok(())
 }
