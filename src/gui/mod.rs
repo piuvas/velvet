@@ -42,7 +42,7 @@ pub struct Velvet {
     status: Status,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ExtraMod {
     title: String,
     id: String,
@@ -249,7 +249,11 @@ impl Velvet {
             }
             Message::PopulateSearchResults(value) => self.modrinth_query_results = Some(value),
 
-            Message::AddExtraMod(value) => self.extra_mods.push(value),
+            Message::AddExtraMod(value) => {
+                if !self.extra_mods.contains(&value) {
+                    self.extra_mods.push(value)
+                }
+            }
             Message::RemoveExtraMod(value) => _ = self.extra_mods.remove(value),
 
             Message::Install => {
