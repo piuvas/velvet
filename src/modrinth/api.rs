@@ -139,20 +139,18 @@ pub async fn search_projects(
     query: &str,
 ) -> Result<Vec<SearchResponse>> {
     let modrinth_url = format!("{MODRINTH_SERVER}/search");
-    let search_response: SearchResult = dbg!(
-        client
-            .get(&modrinth_url)
-            .query(&[("query", query)])
-            .query(&[(
-                "facets",
-                r#"[["categories:fabric", "categories:quilt"], ["project_type:mod"]]"#,
-            )])
-    )
-    .send()
-    .await?
-    .error_for_status()?
-    .json()
-    .await?;
+    let search_response: SearchResult = client
+        .get(&modrinth_url)
+        .query(&[("query", query)])
+        .query(&[(
+            "facets",
+            r#"[["categories:fabric", "categories:quilt"], ["project_type:mod"]]"#,
+        )])
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
     let mut projects_without_icon = Vec::new();
     let mut icon_futures: Vec<JoinHandle<Result<Option<Arc<Handle>>, Arc<reqwest::Error>>>> =
         Vec::new();

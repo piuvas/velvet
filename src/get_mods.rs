@@ -90,8 +90,6 @@ pub async fn run(
     // in the first batch, we check all project ids to see available mods and fetch dependencies.
     // we also check if they already exist in the mod folder by comparing the sha1 hash.
 
-    println!("1");
-
     let mut check_latest_futures = Vec::new();
     for id in selected_id_set {
         check_latest_futures.push(api::check_latest(client.clone(), id, mc_version));
@@ -192,7 +190,6 @@ pub async fn run(
 async fn download_mod(client: Client, url: String, id: String, path: PathBuf) -> Result<String> {
     println!("Downloading \x1b[35m{id}\x1b[39m.");
     let path = path.join(&id).with_extension("jar");
-    println!("2: {url}");
     let download = client.get(url).send().await?.bytes().await?;
     let mut mod_file = File::create(path).await?;
     mod_file.write_all(&download).await?;
