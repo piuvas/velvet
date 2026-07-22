@@ -52,6 +52,7 @@ pub async fn run(
     client: Client,
     mc_version: &str,
     modlist: &(bool, bool, bool),
+    extra_mods: Vec<String>,
     path_mods: PathBuf,
 ) -> Result<Vec<String>> {
     let mut existing_hash = HashSet::new();
@@ -73,18 +74,21 @@ pub async fn run(
 
     if modlist.0 {
         for x in VANILLA {
-            selected_id_set.insert(x);
+            selected_id_set.insert(x.to_string());
         }
     }
     if modlist.1 {
         for x in VISUAL {
-            selected_id_set.insert(x);
+            selected_id_set.insert(x.to_string());
         }
     }
     if modlist.2 {
         for x in OPTIFINE {
-            selected_id_set.insert(x);
+            selected_id_set.insert(x.to_string());
         }
+    }
+    for extra_mod in extra_mods {
+        selected_id_set.insert(extra_mod);
     }
 
     // in the first batch, we check all project ids to see available mods and fetch dependencies.
@@ -109,7 +113,7 @@ pub async fn run(
 
                 if existing_hash.contains(&hash) {
                     println!("Already found \x1b[35m{id}\x1b[39m.");
-                    delete_ids.remove(id);
+                    delete_ids.remove(&id);
                 } else {
                     selected_id_to_url_hash.insert(id, (url, hash));
                 }

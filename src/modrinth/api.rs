@@ -16,13 +16,13 @@ pub enum Status {
 }
 
 pub struct ProjectResponse {
-    pub id: &'static str,
+    pub id: String,
     pub url: String,
     pub hash: String,
     pub dep_project_to_version: HashMap<String, Option<String>>,
 }
 
-pub async fn check_latest(client: Client, id: &'static str, mc_version: &str) -> Result<Status> {
+pub async fn check_latest(client: Client, id: String, mc_version: &str) -> Result<Status> {
     let mut modrinth_url = format!("{MODRINTH_SERVER}/project/{id}");
     let project: Project = client
         .get(&modrinth_url)
@@ -127,10 +127,26 @@ pub async fn get_dep_from_project_id(
 
 #[derive(Clone, Debug)]
 pub struct SearchResponse {
-    pub slug: String,
+    pub project_id: String,
     pub title: String,
     pub description: String,
     pub icon: Option<Arc<Handle>>,
+}
+
+pub async fn get_projects_from_ids(
+    client: Client,
+    project_ids: Vec<String>,
+) -> Result<Vec<Project>> {
+    let modrinth_url = format!("{MODRINTH_SERVER}/projects");
+    let projects: Vec<Project> = client
+        .get(&modrinth_url)
+        .query(&[("ids", format!("{:?}", project_ids))])
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    Ok(projects)
 }
 
 pub async fn search_projects(
@@ -178,7 +194,7 @@ pub async fn search_projects(
             })
         };
         projects_without_icon.push((
-            project.slug.clone(),
+            project.project_id.clone(),
             project.title.clone(),
             project.description.clone(),
         ));
@@ -187,7 +203,7 @@ pub async fn search_projects(
     let mut projects = Vec::new();
     for (proj, icon) in zip(projects_without_icon, icon_futures) {
         projects.push(SearchResponse {
-            slug: proj.0,
+            project_id: proj.0,
             title: proj.1,
             description: proj.2,
             icon: icon.await??,

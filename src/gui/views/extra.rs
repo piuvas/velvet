@@ -15,6 +15,11 @@ pub fn view(velvet: &Velvet) -> Column<'_, Message> {
         Some(Ok(results)) => {
             let mut mod_cards: Column<Message> = column![];
             for result in results {
+                let downloaded = velvet
+                    .extra_mods
+                    .iter()
+                    .find(|extra_mod| &extra_mod.id == &result.project_id)
+                    .is_some();
                 let handle = result.icon.clone();
                 let image: Element<Message> = if let Some(handle) = handle {
                     // this mod has an image
@@ -30,6 +35,24 @@ pub fn view(velvet: &Velvet) -> Column<'_, Message> {
                         .width(50)
                         .into()
                 };
+                let download_button: Element<Message> = if !downloaded {
+                    column![
+                        space().height(Length::Fill),
+                        button(svg(velvet.icons.plus.clone()))
+                            .on_press(Message::AddExtraMod(ExtraMod {
+                                title: result.title.clone(),
+                                id: result.project_id.clone(),
+                            }))
+                            .style(theme::button_style)
+                            .padding(4)
+                            .height(30)
+                            .width(30),
+                        space().height(Length::Fill)
+                    ]
+                    .into()
+                } else {
+                    space().into()
+                };
                 mod_cards = mod_cards.push(
                     row![
                         image,
@@ -42,19 +65,7 @@ pub fn view(velvet: &Velvet) -> Column<'_, Message> {
                                 .width(Length::Fill)
                         ],
                         space().width(8),
-                        column![
-                            space().height(Length::Fill),
-                            button(svg(velvet.icons.plus.clone()))
-                                .on_press(Message::AddExtraMod(ExtraMod {
-                                    title: result.title.clone(),
-                                    id: result.title.clone(),
-                                }))
-                                .style(theme::button_style)
-                                .padding(4)
-                                .height(30)
-                                .width(30),
-                            space().height(Length::Fill)
-                        ],
+                        download_button,
                         space().width(16),
                     ]
                     .padding(4)

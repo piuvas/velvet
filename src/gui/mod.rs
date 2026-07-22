@@ -75,6 +75,8 @@ pub enum Message {
     OpenExportDialog,
     ImportExtraJson(Option<FileHandle>),
     ExportExtraJson(Option<FileHandle>),
+    TryAddExtraMods(Result<Vec<ExtraMod>, String>),
+    TryWriteExtraMods(Result<(), String>),
 
     UpdatedQuery(String),
     SearchModrinth(String),
@@ -153,6 +155,7 @@ impl Velvet {
                         return iced::exit();
                     } else {
                         self.windows.remove(&id);
+                        self.modrinth_query.clear();
                         self.modrinth_query_results = None;
                     }
                 }
@@ -209,19 +212,52 @@ impl Velvet {
             }
             Message::ImportExtraJson(value) => {
                 if let Some(file_handle) = value {
-                    todo!();
+                    let client = self.client.clone();
+                    let future = async move {
+                        let bytes = file_handle.read().await;
+                        let ids: Vec<String> = serde_json::from_slice(&bytes)?;
+                        Ok::<Vec<ExtraMod>, anyhow::Error>(
+                            get_extra_mods_from_ids(client, ids).await?,
+                        )
+                    };
+                    return Task::perform(
+                        future.map_err(|err| err.to_string()),
+                        Message::TryAddExtraMods,
+                    );
                 }
             }
             Message::ExportExtraJson(value) => {
                 if let Some(file_handle) = value {
-                    let string = serde_json::to_string::<Vec<String>>(
-                        &self
-                            .extra_mods
-                            .iter()
-                            .map(|extra_mod| extra_mod.id.clone())
-                            .collect(),
+                    let extra_mods = self.extra_mods.clone();
+                    let future = async move {
+                        let bytes = serde_json::to_vec_pretty::<Vec<String>>(
+                            &extra_mods
+                                .into_iter()
+                                .map(|extra_mod| extra_mod.id)
+                                .collect(),
+                        )?;
+                        file_handle.write(bytes.as_slice()).await?;
+                        Ok::<(), anyhow::Error>(())
+                    };
+                    return Task::perform(
+                        future.map_err(|err| err.to_string()),
+                        Message::TryWriteExtraMods,
                     );
-                    todo!()
+                }
+            }
+            Message::TryAddExtraMods(value) => match value {
+                Ok(new_extra_mods) => {
+                    for new_extra_mod in new_extra_mods {
+                        if !self.extra_mods.contains(&new_extra_mod) {
+                            self.extra_mods.push(new_extra_mod);
+                        }
+                    }
+                }
+                Err(err) => self.status = Status::Failure(err),
+            },
+            Message::TryWriteExtraMods(value) => {
+                if let Err(err) = value {
+                    self.status = Status::Failure(err);
                 }
             }
 
@@ -261,12 +297,20 @@ impl Velvet {
                     Some(value) => {
                         self.status = Status::Installing;
                         let values = (self.vanilla, self.beauty, self.optifine);
+                        let extra_mods = self
+                            .extra_mods
+                            .clone()
+                            .into_iter()
+                            .map(|extra_mod| extra_mod.id)
+                            .collect();
                         let mut tasks = Vec::new();
                         tasks.push(Task::perform(
-                            run(self.client.clone(), value.clone(), values).map_err(|e| {
-                                eprintln!("{e:#?}");
-                                e.to_string()
-                            }),
+                            run(self.client.clone(), value.clone(), values, extra_mods).map_err(
+                                |err| {
+                                    eprintln!("{err:#?}");
+                                    err.to_string()
+                                },
+                            ),
                             Message::Done,
                         ));
                         tasks.push(window::oldest().and_then(move |id| {
@@ -337,6 +381,7 @@ async fn run(
     client: Client,
     mc_version: String,
     modlists: (bool, bool, bool),
+    extra_mods: Vec<String>,
 ) -> Result<Vec<String>> {
     let response: Vec<Response> = client
         .get("https://meta.quiltmc.org/v3/versions/loader")
@@ -349,7 +394,7 @@ async fn run(
     let quilt_version = &response[0].version;
 
     let path_mods = install_velvet::run(client.clone(), &mc_version, quilt_version).await?;
-    let missing = get_mods::run(client, &mc_version, &modlists, path_mods).await?;
+    let missing = get_mods::run(client, &mc_version, &modlists, extra_mods, path_mods).await?;
     Ok(missing)
 }
 
@@ -385,5 +430,17 @@ async fn search_modrinth(
 ) -> Result<Vec<SearchResponse>, String> {
     api::search_projects(client, cache, &query)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|err| err.to_string())
+}
+
+async fn get_extra_mods_from_ids(client: Client, ids: Vec<String>) -> Result<Vec<ExtraMod>> {
+    let projects = api::get_projects_from_ids(client, ids.clone()).await?;
+    Ok(ids
+        .into_iter()
+        .zip(projects)
+        .map(|(id, project)| ExtraMod {
+            title: project.title,
+            id,
+        })
+        .collect())
 }

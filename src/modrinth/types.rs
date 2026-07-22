@@ -1,7 +1,8 @@
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-pub(super) struct Project {
+pub struct Project {
+    pub title: String,
     pub(super) slug: String,
 }
 
@@ -37,7 +38,7 @@ pub(super) struct SearchResult {
 
 #[derive(Clone, Debug, Deserialize)]
 pub(super) struct SearchProject {
-    pub(super) slug: String,
+    pub(super) project_id: String,
     pub(super) title: String,
     pub(super) description: String,
     pub(super) icon_url: String,
