@@ -18,7 +18,7 @@ pub fn view(velvet: &Velvet) -> Column<'_, Message> {
                 let downloaded = velvet
                     .extra_mods
                     .iter()
-                    .find(|extra_mod| &extra_mod.id == &result.project_id)
+                    .find(|extra_mod| extra_mod.id == result.project_id)
                     .is_some();
                 let handle = result.icon.clone();
                 let image: Element<Message> = if let Some(handle) = handle {

@@ -216,9 +216,7 @@ impl Velvet {
                     let future = async move {
                         let bytes = file_handle.read().await;
                         let ids: Vec<String> = serde_json::from_slice(&bytes)?;
-                        Ok::<Vec<ExtraMod>, anyhow::Error>(
-                            get_extra_mods_from_ids(client, ids).await?,
-                        )
+                        get_extra_mods_from_ids(client, ids).await
                     };
                     return Task::perform(
                         future.map_err(|err| err.to_string()),

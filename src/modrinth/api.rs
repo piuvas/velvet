@@ -180,8 +180,8 @@ pub async fn search_projects(
         .json()
         .await?;
     let mut projects_without_icon = Vec::new();
-    let mut icon_futures: Vec<JoinHandle<Result<Option<Arc<Handle>>, Arc<reqwest::Error>>>> =
-        Vec::new();
+    type ImageResultHandle = JoinHandle<Result<Option<Arc<Handle>>, Arc<reqwest::Error>>>;
+    let mut icon_futures: Vec<ImageResultHandle> = Vec::new();
     for project in search_response.hits {
         let handle = if project.icon_url.is_empty() {
             tokio::spawn(async { Ok(None::<Arc<Handle>>) })
