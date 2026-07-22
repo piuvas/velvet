@@ -10,7 +10,6 @@ anyhow = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 reqwest = { version = "0.13", default-features = false, features = ["http2", "system-proxy", "native-tls", "json", "query"] }
 iced = { version = "0.14", features = [
-    "advanced",
     "image",
     "svg",
     "tokio",
