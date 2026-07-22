@@ -134,7 +134,7 @@ impl Velvet {
     pub fn title(&self, id: Id) -> String {
         match (self.windows.get(&id), &self.version) {
             (Some(WindowType::Main), Some(value)) => format!("Velvet Installer - {}", &value),
-            (Some(WindowType::Extra), _) => String::from("Mod search"),
+            (Some(WindowType::Extra), _) => String::from("Velvet Installer - Mod Search"),
             _ => String::from("Velvet Installer"),
         }
     }

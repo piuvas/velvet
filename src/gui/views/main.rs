@@ -43,7 +43,7 @@ pub fn view(velvet: &Velvet) -> Column<'_, Message> {
     let extra_mods: Element<Message> = if velvet.extra_mods.is_empty() {
         let mut row: Row<Message> = row![];
         row = row.push(space().width(Length::Fill));
-        row = row.push(text("Extra mods...").color(theme::SUBTLE));
+        row = row.push(text("Add mods...").color(theme::SUBTLE));
         row = row.push(space().width(Length::Fill));
         container(row)
             .center_y(32)
