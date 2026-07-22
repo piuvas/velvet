@@ -1,4 +1,4 @@
-use std::{collections::HashMap, iter::zip, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, iter::zip, sync::Arc};
 
 use anyhow::Result;
 use iced::widget::image::Handle;
@@ -22,7 +22,11 @@ pub struct ProjectResponse {
     pub dep_project_to_version: HashMap<String, Option<String>>,
 }
 
-pub async fn check_latest(client: Client, id: String, mc_version: &str) -> Result<Status> {
+pub async fn check_latest(
+    client: Client,
+    id: Cow<'static, str>,
+    mc_version: &str,
+) -> Result<Status> {
     let mut modrinth_url = format!("{MODRINTH_SERVER}/project/{id}");
     let project: Project = client
         .get(&modrinth_url)
@@ -63,7 +67,7 @@ pub async fn check_latest(client: Client, id: String, mc_version: &str) -> Resul
             }
         }
         Ok(Status::Found(ProjectResponse {
-            id,
+            id: id.to_string(),
             url,
             hash,
             dep_project_to_version: deps,

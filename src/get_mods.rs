@@ -74,21 +74,18 @@ pub async fn run(
 
     if modlist.0 {
         for x in VANILLA {
-            selected_id_set.insert(x.to_string());
+            selected_id_set.insert(x);
         }
     }
     if modlist.1 {
         for x in VISUAL {
-            selected_id_set.insert(x.to_string());
+            selected_id_set.insert(x);
         }
     }
     if modlist.2 {
         for x in OPTIFINE {
-            selected_id_set.insert(x.to_string());
+            selected_id_set.insert(x);
         }
-    }
-    for extra_mod in extra_mods {
-        selected_id_set.insert(extra_mod);
     }
 
     // in the first batch, we check all project ids to see available mods and fetch dependencies.
@@ -96,7 +93,14 @@ pub async fn run(
 
     let mut check_latest_futures = Vec::new();
     for id in selected_id_set {
-        check_latest_futures.push(api::check_latest(client.clone(), id, mc_version));
+        check_latest_futures.push(api::check_latest(client.clone(), id.into(), mc_version));
+    }
+    for extra_mod in extra_mods {
+        check_latest_futures.push(api::check_latest(
+            client.clone(),
+            extra_mod.into(),
+            mc_version,
+        ));
     }
 
     let mut not_found = Vec::new();
