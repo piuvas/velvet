@@ -19,6 +19,7 @@ use serde::Deserialize;
 use sha1_smol::Sha1;
 use tokio::time::sleep;
 
+use crate::gui::views::main::ADDED_HEIGHT;
 use crate::gui::views::{Icons, WindowType};
 use crate::modrinth::api::{self, SearchResponse};
 use crate::{get_mods, install_velvet};
@@ -325,14 +326,20 @@ impl Velvet {
                     self.status = Status::Success(x);
                     if missing_mods {
                         return window::oldest().and_then(move |id| {
-                            window::resize(id, (500.0, views::main::WINDOW_HEIGHT + 25.0).into())
+                            window::resize(
+                                id,
+                                (500.0, views::main::WINDOW_HEIGHT + ADDED_HEIGHT).into(),
+                            )
                         });
                     };
                 }
                 Err(e) => {
                     self.status = Status::Failure(e);
                     return window::oldest().and_then(move |id| {
-                        window::resize(id, (500.0, views::main::WINDOW_HEIGHT + 25.0).into())
+                        window::resize(
+                            id,
+                            (500.0, views::main::WINDOW_HEIGHT + ADDED_HEIGHT).into(),
+                        )
                     });
                 }
             },

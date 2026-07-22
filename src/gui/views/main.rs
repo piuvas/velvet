@@ -2,13 +2,14 @@ use iced::{
     Alignment, Element, Length,
     widget::{
         Column, Row, button, checkbox, column, container, pick_list, row, scrollable, space, svg,
-        text, tooltip,
+        text, toggler, tooltip,
     },
 };
 
 use crate::gui::{Message, Status, Velvet, theme};
 
 pub const WINDOW_HEIGHT: f32 = 275.0;
+pub const ADDED_HEIGHT: f32 = 30.0;
 
 pub fn view(velvet: &Velvet) -> Column<'_, Message> {
     let (button_message, extra_message): (&str, Option<Element<Message>>) = match &velvet.status {
@@ -26,7 +27,7 @@ pub fn view(velvet: &Velvet) -> Column<'_, Message> {
                         mod_string.push_str(name);
                     }
                     tooltip(
-                        "Hover to see unavailable mods.",
+                        text("Hover to see unavailable mods on this version.").color(theme::SUBTLE),
                         container(text(mod_string)),
                         tooltip::Position::FollowCursor,
                     )
@@ -46,7 +47,7 @@ pub fn view(velvet: &Velvet) -> Column<'_, Message> {
         row = row.push(text("Add mods...").color(theme::SUBTLE));
         row = row.push(space().width(Length::Fill));
         container(row)
-            .center_y(32)
+            .center_y(28)
             .style(theme::extra_mods_container_style)
             .into()
     } else {
@@ -55,10 +56,10 @@ pub fn view(velvet: &Velvet) -> Column<'_, Message> {
             row = row.push(
                 button(
                     text(extra_mod.title.as_str())
-                        .size(14)
+                        .size(12)
                         .align_y(Alignment::Center),
                 )
-                .height(32)
+                .height(28)
                 .on_press(Message::RemoveExtraMod(index))
                 .style(theme::extra_mods_button_style),
             );
@@ -68,13 +69,13 @@ pub fn view(velvet: &Velvet) -> Column<'_, Message> {
             .direction(scrollable::Direction::Horizontal(
                 scrollable::Scrollbar::new().width(4).scroller_width(4),
             ))
-            .height(32)
+            .height(28)
             .style(theme::extra_mods_scrollable_style)
             .into()
     };
 
     let mut main_column = column![
-        text("Enter Minecraft version:").size(20),
+        text("Minecraft version:").size(20),
         pick_list(
             velvet.version_list.clone(),
             velvet.version.clone(),
@@ -84,11 +85,10 @@ pub fn view(velvet: &Velvet) -> Column<'_, Message> {
         .width(200)
         .style(theme::pick_list_style)
         .menu_style(theme::menu_style),
-        space().height(10),
-        checkbox(velvet.snapshot)
-            .label("Show snapshots")
-            .on_toggle(Message::Snapshot)
-            .style(theme::checkbox_style),
+        toggler(velvet.snapshot)
+            .label("Snapshots")
+            .on_toggle(Message::Snapshot),
+        space().height(8),
         column![
             checkbox(velvet.vanilla)
                 .label("Vanilla - Performance enhancing modlist.")
@@ -111,24 +111,24 @@ pub fn view(velvet: &Velvet) -> Column<'_, Message> {
                 .style(theme::button_style)
                 .padding(4)
                 .height(Length::Fill)
-                .width(32),
+                .width(28),
             button(svg(velvet.icons.import.clone()))
                 .on_press(Message::OpenImportDialog)
                 .style(theme::button_style)
                 .padding(4)
                 .height(Length::Fill)
-                .width(32),
+                .width(28),
             button(svg(velvet.icons.export.clone()))
                 .on_press(Message::OpenExportDialog)
                 .style(theme::button_style)
                 .padding(4)
                 .height(Length::Fill)
-                .width(32)
+                .width(28)
         ]
         .spacing(5)
-        .height(32)
+        .height(28)
         .width(320),
-        space().height(10),
+        space().height(8),
         button(button_message)
             .on_press(Message::Install)
             .style(theme::button_style),
@@ -143,6 +143,8 @@ pub fn view(velvet: &Velvet) -> Column<'_, Message> {
         main_column = main_column.push(space().height(Length::Fill));
         main_column = main_column.push(message);
     }
+
+    main_column = main_column.push(space().height(Length::Fill));
 
     main_column
 }
