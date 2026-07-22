@@ -88,7 +88,13 @@ pub async fn get_dep_from_version_id(
     version_id: String,
 ) -> Result<Option<DepResponse>> {
     let modrinth_url = format!("{MODRINTH_SERVER}/version/{version_id}");
-    let version_response: Version = client.get(&modrinth_url).send().await?.json().await?;
+    let version_response: Version = client
+        .get(&modrinth_url)
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
     if let Some(file) = version_response.files.first() {
         println!("Found dependency \x1b[35m{version_id}\x1b[39m.");
         return Ok(Some(DepResponse {
@@ -108,9 +114,11 @@ pub async fn get_dep_from_project_id(
     let modrinth_url = format!("{MODRINTH_SERVER}/project/{project_id}/version");
     let version_response: Vec<Version> = client
         .get(&modrinth_url)
-        .query(&[("loaders", ["fabric", "quilt"])])
-        .query(&[("game_versions", [mc_version])])
-        .query(&[("include_changelog", false)])
+        .query(&[
+            ("loaders", r#"["fabric","quilt"]"#),
+            ("game_versions", &format!(r#"["{mc_version}"]"#)),
+            ("include_changelog", "false"),
+        ])
         .send()
         .await?
         .error_for_status()?
