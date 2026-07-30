@@ -4,10 +4,16 @@
 
 <img width="612" alt="image" src="https://github.com/user-attachments/assets/041f56f8-e403-483f-8790-f683e82ffe63" />
 
+## downloads.
+
 |version|linux|macos|windows|
 |-|-|-|-|
-|stable ☀️|[linux stable](https://github.com/piuvas/velvet/releases/latest/download/velvet-ubuntu-latest)|[macos stable](https://github.com/piuvas/velvet/releases/latest/download/velvet-macos-latest)|[windows stable](https://github.com/piuvas/velvet/releases/latest/download/velvet-windows-latest)|
+|release ☀️|[linux release](https://github.com/piuvas/velvet/releases/latest/download/velvet-ubuntu-latest)|[macos release](https://github.com/piuvas/velvet/releases/latest/download/velvet-macos-latest)|[windows release](https://github.com/piuvas/velvet/releases/latest/download/velvet-windows-latest)|
 |nightly 🌙|[linux nightly](https://nightly.link/piuvas/velvet/workflows/rust/main/velvet-ubuntu-latest.zip)|[macos nightly](https://nightly.link/piuvas/velvet/workflows/rust/main/velvet-macos-latest.zip)|[windows nightly](https://nightly.link/piuvas/velvet/workflows/rust/main/velvet-windows-latest.zip)|
+
+<sup>*nightly binaries may have the latest features but are more unstable!</sup>
+
+## about.
 
 this is a [quilt](https://quiltmc.org) installer that installs (imo) essential minecraft mods.
 i made it because i know people that dislike manually installing quilt and downloading optimization mods from [modrinth](https://modrinth.com).
